@@ -1,5 +1,11 @@
 [
   {
+    "slug": "shared-roster",
+    "title": "Drivers can work two sites",
+    "blurb": "Two sites can share some of their drivers, in both directions, without anyone being moved between them.",
+    "date": "16 September 2026"
+  },
+  {
     "slug": "cross-station-support",
     "title": "Lend a driver, keep the pay straight",
     "blurb": "Send a driver to help another station for a few shifts \u2014 one record, their own G-Number, both pay sheets right.",
