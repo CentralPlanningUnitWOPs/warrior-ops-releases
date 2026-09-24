@@ -1,5 +1,11 @@
 [
   {
+    "slug": "netradyne-camera-events",
+    "title": "Camera events, driver by driver",
+    "blurb": "Netradyne camera events land in Warrior Ops by themselves \u2014 pinned to the van and driver, with a hotspot map and a snapshot to send the driver.",
+    "date": "24 September 2026"
+  },
+  {
     "slug": "van-hire-evidence",
     "title": "Photograph the van before it goes out",
     "blurb": "Hire vans are now walked round and photographed before they go on the road, and again the day they go back \u2014 the same angles, so an invoice months later has an answer.",

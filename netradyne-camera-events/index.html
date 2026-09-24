@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Camera events, driver by driver — Warrior Ops</title>
+<meta name="description" content="The ClearQuote tracker now updates itself every hour. What it's for, how it works, what changes for you, and the quirks.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap">
+<style>
+  /* ── Warrior Ops brand tokens (tailwind.config.ts) ───────────────── */
+  :root{
+    --red:#ED1C24; --red-d:#c4141b;
+    --ink:#111111; --ink-2:#1d1d1d; --ink-3:#080808;
+    --paper:#f4f4f5; --line:#dfe0e2; --grey:#6b7280; --grey-bg:#eceef0;
+    --graphite:#262626; --amber:#f59e0b;
+    --card:#ffffff; --body-ink:#111111; --soft:#f8f8f9;
+    --display:"Oswald","Inter",ui-sans-serif,system-ui,sans-serif;
+    --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  /* The masthead is pinned ink in both themes — cinematic surfaces never flip.
+     Only the body card follows the reader's theme. */
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0c0c0d; --card:#161618; --body-ink:#f1f1f2; --line:#2b2b2f;
+      --grey:#9a9aa2; --grey-bg:#202024; --soft:#1c1c1f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0c0c0d; --card:#161618; --body-ink:#f1f1f2; --line:#2b2b2f;
+    --grey:#9a9aa2; --grey-bg:#202024; --soft:#1c1c1f;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:34px 18px 64px;
+    background:
+      radial-gradient(circle at top left, rgba(237,28,36,0.12), transparent 30%),
+      var(--paper);
+    background-attachment:fixed;
+    color:var(--body-ink);
+    font-family:var(--sans); font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    text-rendering:optimizeLegibility;
+  }
+  .note{max-width:760px; margin:0 auto; box-shadow:0 20px 80px rgba(17,17,17,0.14); border-radius:28px;}
+
+  /* ── Masthead: ink block with the red radial wash ─────────────────── */
+  .mast{
+    position:relative; overflow:hidden; background:var(--ink);
+    border-radius:28px 28px 0 0; padding:30px 30px 34px;
+  }
+  .mast::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(circle at top left, rgba(237,28,36,0.28), transparent 55%),
+      radial-gradient(circle at bottom right, rgba(255,255,255,0.06), transparent 20%);
+  }
+  .mast > *{position:relative; z-index:1;}
+  .lockup{
+    display:flex; align-items:center; gap:10px; margin-bottom:26px;
+  }
+  .lockup .bar{width:4px; height:26px; background:var(--red); border-radius:2px; flex:none;}
+  .lockup .wordmark{
+    color:#fff; font-weight:900; font-size:13px; letter-spacing:.06em;
+    text-transform:uppercase; line-height:1.1;
+  }
+  .lockup .sub{
+    color:rgba(255,255,255,.45); font-weight:700; font-size:9px;
+    letter-spacing:.16em; text-transform:uppercase; margin-top:2px;
+  }
+  .eyebrow{
+    color:var(--red); font-size:10px; font-weight:800; letter-spacing:.28em;
+    text-transform:uppercase; margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--display); font-weight:700; color:#fff;
+    font-size:clamp(28px,5.4vw,40px); line-height:1.06; letter-spacing:.005em;
+    text-transform:uppercase; margin:0 0 14px; text-wrap:balance;
+  }
+  .standfirst{
+    color:rgba(255,255,255,.74); font-size:16px; margin:0; max-width:54ch; font-weight:400;
+  }
+  .standfirst strong{color:#fff; font-weight:700;}
+  .tags{display:flex; flex-wrap:wrap; gap:7px; margin-top:22px;}
+  .tag{
+    font-size:9.5px; font-weight:800; letter-spacing:.13em; text-transform:uppercase;
+    padding:6px 11px; border-radius:999px;
+    background:rgba(255,255,255,.08); color:rgba(255,255,255,.82);
+    border:1px solid rgba(255,255,255,.14);
+  }
+  .tag.live{background:rgba(237,28,36,.16); border-color:rgba(237,28,36,.5); color:#ff8b90;}
+
+  /* ── Body card ────────────────────────────────────────────────────── */
+  .body{
+    background:var(--card); border:1px solid var(--line); border-top:none;
+    border-radius:0 0 28px 28px; padding:34px 30px 30px;
+  }
+  h2{
+    font-size:10.5px; font-weight:800; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--grey); margin:0 0 16px; padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  section{margin:0 0 38px;} section:last-of-type{margin-bottom:0;}
+  p{margin:0 0 13px;} p:last-child{margin-bottom:0;}
+
+  /* one-line summary */
+  .oneline{
+    border-left:4px solid var(--red); background:var(--soft);
+    padding:17px 20px; border-radius:0 12px 12px 0; margin-bottom:38px;
+  }
+  .oneline p{font-size:17px; font-weight:600; line-height:1.5;}
+
+  /* what it's for */
+  .uses{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px;}
+  .uses li{position:relative; padding-left:26px; font-size:15.5px;}
+  .uses li::before{
+    content:""; position:absolute; left:0; top:9px;
+    width:9px; height:9px; background:var(--red); border-radius:2px;
+  }
+  .uses strong{font-weight:700;}
+
+  /* how it works */
+  .steps{display:flex; flex-direction:column; gap:2px;}
+  .step{
+    display:grid; grid-template-columns:34px 1fr; gap:16px;
+    padding:15px 0; border-bottom:1px solid var(--line);
+  }
+  .step:last-child{border-bottom:none;}
+  .step .n{
+    font-family:var(--display); font-weight:600; font-size:17px; color:var(--red);
+    line-height:1.2; font-variant-numeric:tabular-nums;
+  }
+  .step h3{font-size:15px; font-weight:700; margin:0 0 4px;}
+  .step p{font-size:14.5px; color:var(--grey); margin:0;}
+  .step p strong{color:var(--body-ink); font-weight:600;}
+
+  /* what changes for you */
+  .roles{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px;}
+  .role{background:var(--soft); border:1px solid var(--line); border-radius:14px; padding:16px 18px;}
+  .role .who{
+    font-size:9.5px; font-weight:800; letter-spacing:.15em; text-transform:uppercase;
+    color:var(--red); margin:0 0 8px;
+  }
+  .role p{font-size:14.5px; margin:0;}
+
+  /* quirks */
+  .quirks{display:flex; flex-direction:column; gap:9px;}
+  .quirks details{background:var(--soft); border:1px solid var(--line); border-radius:14px;}
+  .quirks summary{
+    cursor:pointer; list-style:none; padding:14px 18px;
+    font-size:14.5px; font-weight:700;
+    display:flex; justify-content:space-between; align-items:center; gap:14px;
+  }
+  .quirks summary::-webkit-details-marker{display:none;}
+  .quirks summary::after{content:"+"; color:var(--red); font-weight:800; font-size:18px; flex:none; line-height:1;}
+  .quirks details[open] summary::after{content:"–";}
+  .quirks summary:focus-visible{outline:2px solid var(--red); outline-offset:2px; border-radius:14px;}
+  .quirks .a{padding:0 18px 15px; font-size:14px; color:var(--grey);}
+  .quirks .a strong{color:var(--body-ink); font-weight:700;}
+  .quirks .a p{margin:0 0 8px;}
+
+  /* limits */
+  .limits{
+    border:1px solid var(--line); border-left:4px solid var(--amber);
+    background:var(--soft); border-radius:0 14px 14px 0; padding:17px 20px;
+  }
+  .limits .lt{
+    font-size:9.5px; font-weight:800; letter-spacing:.15em; text-transform:uppercase;
+    color:var(--amber); margin:0 0 9px;
+  }
+  .limits ul{margin:0; padding-left:19px; display:flex; flex-direction:column; gap:7px; font-size:14.5px;}
+
+  footer{
+    margin-top:34px; padding-top:18px; border-top:1px solid var(--line);
+    display:flex; flex-wrap:wrap; gap:6px 20px; justify-content:space-between;
+    font-size:10px; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:var(--grey);
+  }
+
+  @media (max-width:560px){
+    body{padding:20px 12px 48px;}
+    .mast{padding:24px 21px 27px; border-radius:22px 22px 0 0;}
+    .body{padding:27px 21px 24px; border-radius:0 0 22px 22px;}
+    .note{border-radius:22px;}
+    .step{grid-template-columns:26px 1fr; gap:12px;}
+  }
+</style>
+</head>
+<body>
+
+<article class="note">
+
+  <header class="mast">
+    <div class="lockup">
+      <div class="bar"></div>
+      <div>
+        <div class="wordmark">Warrior Ops</div>
+        <div class="sub">Release note</div>
+      </div>
+    </div>
+
+    <p class="eyebrow">Now live · 24 September 2026</p>
+    <h1>Camera events, driver by driver</h1>
+    <p class="standfirst">
+      Every Netradyne camera event now lands in Warrior Ops on its own — <strong>pinned to the van
+      and the driver who had it that day</strong>, with a map of where it keeps happening and a
+      snapshot you can send the driver in two clicks.
+    </p>
+
+    <div class="tags">
+      <span class="tag live">Live now</span>
+      <span class="tag">Managers &amp; owners</span>
+      <span class="tag">Five-minute setup</span>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <div class="oneline">
+      <p>Open Safety → Netradyne and you can see who to coach, what for, and where — without opening Netradyne.</p>
+    </div>
+
+    <section>
+      <h2>What it's for</h2>
+      <ul class="uses">
+        <li><strong>Knowing who to coach first.</strong> Drivers are ranked by how serious their events were, not just how many — Netradyne's own "severe" events count three times.</li>
+        <li><strong>Putting a name on "Unknown Driver".</strong> When Netradyne doesn't know who was driving, the van and the rota fill it in — and say so, so nobody is blamed blind.</li>
+        <li><strong>Briefing the danger spots.</strong> The map shows where the same thing keeps happening — a junction, a perimeter road — ready to copy into the morning huddle or WhatsApp.</li>
+        <li><strong>Sending a driver their own evidence.</strong> A one-page picture of their events and the one thing to work on, by email or straight into WhatsApp.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="n">01</span>
+          <div>
+            <h3>Set it up once on your computer</h3>
+            <p>Safety → Netradyne → <strong>Download the Chrome extension</strong>. Unzip it, open <strong>chrome://extensions</strong>, switch on <strong>Developer mode</strong> (top right), click <strong>Load unpacked</strong> and pick the folder. Pin it. Then delete the download — it contains your company's private key.</p>
+          </div>
+        </div>
+        <div class="step">
+          <span class="n">02</span>
+          <div>
+            <h3>Press Import now, log in to Netradyne once</h3>
+            <p>Click the extension → <strong>Import now</strong>. It opens its own pinned Netradyne tab; log in there if it asks. The first import brings in the last 84 days in about a minute. <strong>From then on it runs itself every 20 minutes</strong> while Chrome is open.</p>
+          </div>
+        </div>
+        <div class="step">
+          <span class="n">03</span>
+          <div>
+            <h3>Start with "Needs you"</h3>
+            <p>The strip at the top lists what needs a person — the worst driver today, the worst spot on the map, drivers to link, events that couldn't be pinned. <strong>Click a chip and it takes you straight there.</strong> Switch between Today, Day −1 and Lifetime, or pick a site.</p>
+          </div>
+        </div>
+        <div class="step">
+          <span class="n">04</span>
+          <div>
+            <h3>Brief the hotspots</h3>
+            <p>Under <strong>Where it happens</strong>, the heatmap shows where events cluster. Zoom into a street to see each event — a white ring means we know whose it was; click one for when and who. <strong>Copy briefing</strong> puts the top five spots, with map links, on your clipboard.</p>
+          </div>
+        </div>
+        <div class="step">
+          <span class="n">05</span>
+          <div>
+            <h3>Coach the driver</h3>
+            <p>In <strong>Coach first</strong>, click a driver: every event by day and van, and the one thing to work on. <strong>Copy image</strong> for WhatsApp, <strong>Download PNG</strong>, <strong>Show on map</strong> — or <strong>Email to driver</strong> (owners only; it asks you to confirm the address before anything is sent).</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>What changes for you</h2>
+      <div class="roles">
+        <div class="role">
+          <p class="who">Station manager</p>
+          <p>No more screenshots from Netradyne. Work the Needs you strip, brief the hotspots, open the top drivers. If a driver shows "Not linked", pick them from the list once and it sticks.</p>
+        </div>
+        <div class="role">
+          <p class="who">Drivers</p>
+          <p>Nothing automatic. They only hear about it when a manager sends them their snapshot — no emails go out by themselves.</p>
+        </div>
+        <div class="role">
+          <p class="who">Owners</p>
+          <p>Only owners can email a driver their snapshot. Keys for the extension are listed on the page and can be revoked at any time.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Looks wrong, but is correct</h2>
+      <div class="quirks">
+        <details>
+          <summary>Our total is a few higher than Netradyne's Drivers page</summary>
+          <div class="a"><p>Netradyne's Drivers page <strong>hides deactivated drivers unless you tick "Include Deactivated Drivers"</strong>. We keep their events — they happened. Tick the box and the numbers match.</p></div>
+        </details>
+        <details>
+          <summary>A driver has events "via rota"</summary>
+          <div class="a"><p>Netradyne didn't know who was driving (its "Unknown Driver"), so we used the van's VIN and the rota for that day. <strong>If the rota was wrong, the name will be wrong</strong> — fix the rota and it corrects itself.</p></div>
+        </details>
+        <details>
+          <summary>A driver shows "Rota differs"</summary>
+          <div class="a"><p>Netradyne named this driver, but the rota had someone else in that van. <strong>The event stays on the driver Netradyne named</strong> — the note is there so you can check.</p></div>
+        </details>
+        <details>
+          <summary>The map shows yesterday when I'm on Today</summary>
+          <div class="a"><p>Netradyne only releases event locations once a day is finished. <strong>Today's spots appear tomorrow morning.</strong> Everything else on the page is live.</p></div>
+        </details>
+        <details>
+          <summary>Most dots on the map have no name</summary>
+          <div class="a"><p>Netradyne gives a location without a driver. We only put a name on a dot when <strong>theirs was the only van with that kind of event that day</strong> — most red lights, phone use and harsh braking; never seatbelt. The rest still show where it happens.</p></div>
+        </details>
+        <details>
+          <summary>The fleet GreenZone score changed during the week</summary>
+          <div class="a"><p>It's the week <strong>so far</strong> — it says "3 days so far" underneath — and it settles when the week ends, exactly as on Netradyne's dashboard.</p></div>
+        </details>
+        <details>
+          <summary>Camera button presses aren't in the totals</summary>
+          <div class="a"><p>On purpose. That's the driver recording something, not a violation. You'll still see them in the driver's detail.</p></div>
+        </details>
+        <details>
+          <summary>The extension icon shows a "!"</summary>
+          <div class="a"><p>It needs you — almost always <strong>Netradyne has logged you out</strong>. Log in again in the pinned Netradyne tab; the next import catches up everything you missed.</p></div>
+        </details>
+      </div>
+    </section>
+
+    <section>
+      <h2>Where the limits are</h2>
+      <div class="limits">
+        <p class="lt">Known and deliberate</p>
+        <ul>
+          <li>It reads Netradyne and changes nothing there. It needs Chrome open on a computer that's awake, logged in to Netradyne — imports pause when the laptop sleeps and catch up after.</li>
+          <li>Netradyne only lets us go back about 84 days. "Lifetime" means everything since your first import, and it grows from here.</li>
+          <li>No driver is emailed automatically. Every snapshot is sent by a person.</li>
+          <li>A van only matches if its VIN is in Van Tracker. Events on a van we don't know are listed under "Not pinned to a driver" — never dropped.</li>
+        </ul>
+      </div>
+    </section>
+
+  </div>
+</article>
+
+<footer style="max-width:760px;margin:0 auto;">
+  <span>Warrior Ops · Release note</span>
+  <span>24 September 2026</span>
+  <span>Questions to Dan</span>
+</footer>
+
+</body>
+</html>
